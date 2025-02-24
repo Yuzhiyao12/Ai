@@ -148,7 +148,7 @@ class Index
 
         } catch (\Exception $e) {
             // 捕获异常并返回错误信息
-            return json(['success' => false, 'message' => '系统异常', 'error' => $e->getMessage()]);
+            return json(['success' => false, 'message' => $e->getMessage(), 'error' => $e->getMessage()]);
         }
     }
 
