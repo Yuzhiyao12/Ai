@@ -120,12 +120,14 @@ class Index
             // 获取 session_key
             $sessionResult = $this->getSessionKey($code);
             if (!$sessionResult) {
+                \think\facade\Log::error('获取session_key失败，code: ' . $code);
                 return json(['success' => false, 'message' => '获取session_key失败']);
             }
 
             $sessionKey = $sessionResult['session_key'];
             $phoneNumber = $this->decryptPhoneNumber($sessionKey, $encryptedData, $iv);
             if (!$phoneNumber) {
+                \think\facade\Log::error('解密手机号失败，sessionKey: ' . $sessionKey);
                 return json(['success' => false, 'message' => '解密手机号失败']);
             }
 
@@ -147,8 +149,9 @@ class Index
             return json(['success' => true, 'token' => $token]);
 
         } catch (\Exception $e) {
-            // 捕获异常并返回错误信息
-            return json(['success' => false, 'message' => $e->getMessage(), 'error' => $e->getMessage()]);
+            // 捕获异常并记录错误信息
+            \think\facade\Log::error('登录异常: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+            return json(['success' => false, 'message' => '系统异常', 'error' => $e->getMessage()]);
         }
     }
 
