@@ -112,36 +112,44 @@ class Index
 
     public function login(Request $request)
     {
+        try {
+            $code = $request->post('code');
+            $encryptedData = $request->post('encryptedData');
+            $iv = $request->post('iv');
 
-        $code = $request->post('code');
-        $encryptedData = $request->post('encryptedData');
-        $iv = $request->post('iv');
+            // 获取 session_key
+            $sessionResult = $this->getSessionKey($code);
+            if (!$sessionResult) {
+                return json(['success' => false, 'message' => '获取session_key失败']);
+            }
 
-        // 获取 session_key
-        $sessionResult = $this->getSessionKey($code);
-        if (!$sessionResult) {
-            return json(['success' => false, 'message' => '获取session_key失败']);
+            $sessionKey = $sessionResult['session_key'];
+            $phoneNumber = $this->decryptPhoneNumber($sessionKey, $encryptedData, $iv);
+            if (!$phoneNumber) {
+                return json(['success' => false, 'message' => '解密手机号失败']);
+            }
+
+            // 查找或创建用户
+            $user = Db::table('users')->where('phone', $phoneNumber)->find();
+            if (!$user) {
+                // 如果用户不存在，创建新用户
+                $userId = Db::table('users')->insertGetId(['phone' => $phoneNumber]);
+            } else {
+                $userId = $user['id'];
+            }
+
+            // 生成简单的 token
+            $token = bin2hex(random_bytes(16)); // 生成一个随机的 token
+
+            // 可选：将 token 存储在数据库中，关联用户
+            Db::table('tokens')->insert(['user_id' => $userId, 'token' => $token]);
+
+            return json(['success' => true, 'token' => $token]);
+
+        } catch (\Exception $e) {
+            // 捕获异常并返回错误信息
+            return json(['success' => false, 'message' => '系统异常', 'error' => $e->getMessage()]);
         }
-
-        $sessionKey = $sessionResult['session_key'];
-        $phoneNumber = $this->decryptPhoneNumber($sessionKey, $encryptedData, $iv);
-        if (!$phoneNumber) {
-            return json(['success' => false, 'message' => '解密手机号失败']);
-        }
-
-        // 查找或创建用户
-        $user = Db::table('users')->where('phone', $phoneNumber)->find();
-        if (!$user) {
-            // 如果用户不存在，创建新用户
-            $userId = Db::table('users')->insertGetId(['phone' => $phoneNumber]);
-        } else {
-            $userId = $user['id'];
-        }
-
-        // 生成 token（可以使用 JWT 或其他方式）
-        $token = $this->generateToken($userId);
-
-        return json(['success' => true, 'token' => $token]);
     }
 
     private function getSessionKey($code)
